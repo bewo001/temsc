@@ -181,7 +181,8 @@ class Config:
                  msg_sz=8,
                  box_sz=8,
                  linesp=None,
-                 landscape=False):
+                 landscape=False,
+                 inkscape="inkscape"):
         if not os.path.exists(outdir):
             os.mkdir(outdir)
         self.outdir = outdir
@@ -200,6 +201,7 @@ class Config:
         # din a 4
         self.W = 595
         self.H = 842
+        self.inkscape = inkscape
         if landscape:
             t = self.W
             self.W = self.H
@@ -505,7 +507,7 @@ class StatList:
     def export_emf(self):
         self.sfc.flush()
         self.sfc.finish()
-        subprocess.call(["inkscape", "-M",
+        subprocess.call([self.cfg.inkscape, "-M",
                          (self.cfg.basnam + ".emf") % self.pages,
                          self.fnam])
 
