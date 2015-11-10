@@ -11,7 +11,7 @@ def basic_call():
            ("B", "UA B")
            ]
     cfg = msc.Config(outdir="./basic_call", outfile="basic_call%d",
-                     txtout=msc.TxtLatex(), format="pdf")
+                     txtout=msc.TxtPlain(), format="emf")
     sl = msc.StatList(cfg, sts)
     sl.msg_to("INVITE\nFrom: a\nTo: b", ["A", "AP", "AI"], "A makes a call")
     sl.msg_to("Cx", ["AI", "H"],
