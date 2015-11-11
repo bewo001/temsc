@@ -1,4 +1,4 @@
-# -*- coding: latin-1 -*-
+# -*- coding: utf-8 -*-
 import cairo
 import math
 import os.path
@@ -15,7 +15,9 @@ H = 595
 
 
 class TxtPlain:
-
+    """
+    Output module for plain text
+    """
     def __init__(self, basnam=None, page=1):
         self.page = page
         if basnam is not None:
@@ -34,7 +36,9 @@ class TxtPlain:
 
 
 class TxtLatex:
-
+    """
+    Output module for LaTeX article class
+    """
     def __init__(self, basnam=None, page=1):
         self.page = page
         self.dryrun = True
@@ -93,7 +97,9 @@ class TxtLatex:
 
 
 class TxtBeamer:
-
+    """
+    Output module for LaTeX beamer class
+    """
     def __init__(self, basnam=None, page=1):
         self.page = page
         self.dryrun = True
@@ -183,6 +189,28 @@ class Config:
                  linesp=None,
                  landscape=False,
                  inkscape="inkscape"):
+        """
+        outdir: path to output directory
+        outfile: name of outputfile, must contain a %d which will be replaced with a page number
+        format: one of "pdf", "svg", or "emf"
+        txtout: output module instance, eg TxtPlain()
+
+        The following size values are in typographical em units (characters):
+
+        tmargin: top margin
+        bmargin: bottom margin
+        lmargin: left margin
+        rmargin: right margin
+
+        The following size values are in typographical points:
+
+        header_sz: size of column header text
+        msg_sz: size of message text
+        box_sz: size of box text
+
+        landscape: when True output is in landscape mode
+        inkscape: set inkscape command with complete path
+        """
         if not os.path.exists(outdir):
             os.mkdir(outdir)
         self.outdir = outdir
@@ -403,7 +431,7 @@ class NetAbbrev:
         self.cfg = cfg
         self.id = id
         self.label = label
-        if cfg.__dict__.has_key("c"):
+        if "c" in cfg.__dict__:
             self.set_cairo(cfg.c)
 
     def set_cairo(self, c):
@@ -478,7 +506,7 @@ class StatList:
         fk = (self.extent_w - (lmargin + rmargin)) / len(self.stations)
         self.col_w = fk
         self.st = {}
-        self.st_xi = [lmargin + fk / 2 + fk * i
+        self.st_xi = [max(lmargin, fk / 2) + fk * i
                       for i in range(0, len(self.stations))]
         self.st_x = {}
         self.row_y = self.cfg.tmargin + self.cfg.header_emh \
@@ -505,29 +533,23 @@ class StatList:
                                  row_y - 2 * self.cfg.msg_emh)
 
     def export_emf(self):
-        self.sfc.flush()
-        self.sfc.finish()
         subprocess.call([self.cfg.inkscape, "-M",
                          (self.cfg.basnam + ".emf") % self.pages,
                          self.fnam])
 
     def page(self, row_y=None):
-        # print("row_y %d B %d" %
-        # (self.row_y, (self.cfg.H - (self.stations[0].bmargin + self.emh))))
         if row_y is None:
             row_y = self.row_y
-        if row_y < (self.cfg.H -
-                    (self.cfg.bmargin
-                     + self.cfg.header_emh
-                     + self.cfg.linesp
-                     + self.cfg.msg_emh
-                     + self.cfg.tmargin)):
+        # print("eextent_h %d row_y %d" % (self.extent_h - self.cfg.msg_emh, row_y))
+        if row_y < (self.extent_h - (len(self.stations) * self.cfg.linesp + self.cfg.msg_emh)):
             return
-        self.timelines(self.row_y)
         if self.format == "pdf":
             self.sfc.show_page()
-        elif self.format == "svg":
-            self.export_emf()
+        elif self.format == "svg" or self.format == "emf":
+            self.sfc.flush()
+            self.sfc.finish()
+            if self.format == "emf":
+                self.export_emf()
             self.pages += 1
             self.fnam = (self.cfg.basnam + ".svg") % self.pages
             print("page")
@@ -536,12 +558,19 @@ class StatList:
             self.c.set_source_rgb(1.0, 1.0, 1.0)
             self.c.rectangle(0, 0, self.cfg.W, self.cfg.H)
             self.c.fill()
+            [i.set_cairo(self.c) for i in self.stations]
 
+        self.timelines(self.extent_h - self.cfg.msg_emh)
         self.row_y = self.cfg.tmargin + self.cfg.header_emh \
             + 2 * self.cfg.msg_emh
 
     @defer
     def msg_to(self, msg, stations, descr=None):
+        """
+        draw message <msg> between all stations mentioned in <stations>
+        msg: text, a '\n' character results in  a line break
+        stations: list of station IDs
+        """
         self.page()
         self.c.set_line_width(2.0)
         self.c.set_font_size(self.cfg.msg_sz)
@@ -613,6 +642,11 @@ class StatList:
 
     @defer
     def media(self, msg, stations, descr=None):
+        """
+        draw double ended media arrow with text <msg> between all stations mentioned in <stations>
+        msg: text, a '\n' character results in  a line break
+        stations: list of station IDs
+        """
         self.page()
         wl = self.c.get_line_width()
         self.c.set_line_width(2)
@@ -691,10 +725,16 @@ class StatList:
 
     @defer
     def box(self, station_id, txtm, descr=None, halfwidth=False):
+        """
+        draw a box with text <txtm> at station <station_id>
+        station_id: ID of the station column where this box should be drawn
+        txtm: text, the text will be centered, line breaks will be inserted automatically when needed
+        """
+        idx = self.st[station_id]
+        halfwidth = halfwidth or idx == 0 or idx == (len(self.st) - 1)
         self.c.set_font_size(self.cfg.box_sz)
         txt = "%d. %s" % (self.mno, txtm)
         wbt, hbt, rws = self.textwrap(txt, halfwidth)
-        idx = self.st[station_id]
         x = self.st_x[station_id]
         y = self.row_y
         mgw = self.cfg.box_emw
