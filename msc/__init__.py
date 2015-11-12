@@ -25,7 +25,6 @@ class TxtPlain:
 
     def set_outfile(self, basnam, combis=[], page=1):
         self.basnam = basnam
-        print("open %s" % basnam)
         self.fd = open((basnam + ".txt") % page, "w")
 
     def outitem(self, nr, text):
@@ -421,7 +420,6 @@ class Station:
         self.c.move_to(x, self.cfg.tmargin +
                        self.cfg.header_emh + self.cfg.header_emh / 2)
         self.c.line_to(x, row_y)
-        #self.c.line_to(x, self.cfg.H - self.cfg.bmargin)
         self.c.stroke()
 
 
@@ -484,11 +482,15 @@ class StatList:
         if self.format == "pdf":
             self.fnam = (self.cfg.basnam + ".pdf") % self.pages
             self.sfc = cairo.PDFSurface(self.fnam,
-                                        self.extent_w, self.extent_h)
+                                        self.cfg.W, self.cfg.H)
         elif self.format == "svg" or self.format == "emf":
             self.fnam = (self.cfg.basnam + ".svg") % self.pages
-            self.sfc = cairo.SVGSurface(self.fnam,
-                                        self.extent_w, self.extent_h)
+            if self.pages < self.last_page:
+                self.sfc = cairo.SVGSurface(self.fnam,
+                                            self.extent_w, self.cfg.H)
+            else:
+                self.sfc = cairo.SVGSurface(self.fnam,
+                                            self.extent_w, self.extent_h)
         self.c = cairo.Context(self.sfc)
         self.cfg.textadjust(self.c)
         self.stations = [self.station_init(
@@ -517,20 +519,24 @@ class StatList:
             self.stations[i].c = self.c
             self.st[self.stations[i].id] = i
             self.st_x[self.stations[i].id] = self.st_xi[i]
-        self.timelines(self.extent_h - self.cfg.msg_emh)
+        if self.pages < self.last_page:
+            self.timelines(self.cfg.H - self.cfg.bmargin)
+        else:
+            self.timelines(self.extent_h - self.cfg.msg_emh)
 
     def __init__(self, cfg, stations, format="pdf"):
         Defer.fs = []
         self.cfg = cfg
         self.format = cfg.format
         self.extent_w = cfg.W
-        self.extent_h = cfg.H
+        self.extent_h = self.cfg.H
         self.stations0 = stations
+        self.last_page = 0
 
     def timelines(self, row_y):
         for i in range(len(self.stations)):
             self.stations[i].out(self.st_x[self.stations[i].id],
-                                 row_y - 2 * self.cfg.msg_emh)
+                                 row_y)
 
     def export_emf(self):
         subprocess.call([self.cfg.inkscape, "-M",
@@ -540,9 +546,9 @@ class StatList:
     def page(self, row_y=None):
         if row_y is None:
             row_y = self.row_y
-        # print("eextent_h %d row_y %d" % (self.extent_h - self.cfg.msg_emh, row_y))
-        if row_y < (self.extent_h - (len(self.stations) * self.cfg.linesp + self.cfg.msg_emh)):
+        if row_y < self.cfg.H - (self.cfg.bmargin + len(self.stations) * self.cfg.linesp) :
             return
+        self.pages += 1
         if self.format == "pdf":
             self.sfc.show_page()
         elif self.format == "svg" or self.format == "emf":
@@ -550,17 +556,21 @@ class StatList:
             self.sfc.finish()
             if self.format == "emf":
                 self.export_emf()
-            self.pages += 1
             self.fnam = (self.cfg.basnam + ".svg") % self.pages
-            print("page")
             self.sfc = cairo.SVGSurface(self.fnam, self.cfg.W, self.cfg.H)
             self.c = cairo.Context(self.sfc)
+            self.cfg.textadjust(self.c)
             self.c.set_source_rgb(1.0, 1.0, 1.0)
+            self.c.select_font_face("Sans")
+            self.c.set_font_size(self.cfg.msg_sz)
             self.c.rectangle(0, 0, self.cfg.W, self.cfg.H)
             self.c.fill()
             [i.set_cairo(self.c) for i in self.stations]
 
-        self.timelines(self.extent_h - self.cfg.msg_emh)
+        if self.pages < self.last_page:
+            self.timelines(self.cfg.H - self.cfg.bmargin)
+        else:
+            self.timelines(self.extent_h - self.cfg.msg_emh)
         self.row_y = self.cfg.tmargin + self.cfg.header_emh \
             + 2 * self.cfg.msg_emh
 
@@ -765,17 +775,17 @@ class StatList:
         self.begin()
         for f in Defer.fs:
             f.force()
-        self.extent_h = min(self.row_y + 3 * self.cfg.msg_emh, self.cfg.H)
+        self.last_page = self.pages
+        self.extent_h = min(self.row_y + self.cfg.bmargin / 2, self.cfg.H)
         self.cfg.txtout.dryrun = False
         self.begin()
         for f in Defer.fs:
             f.force()
 
+        self.sfc.flush()
+        self.sfc.finish()
         if self.format == "emf":
             self.export_emf()
-        else:
-            self.sfc.flush()
-            self.sfc.finish()
 
 
 class Combis:
