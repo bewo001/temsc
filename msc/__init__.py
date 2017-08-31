@@ -165,6 +165,46 @@ class TxtBeamer:
         self.fd.write("\\end{document}\n")
         self.fd.close()
 
+class TxtHtml:
+    def __init__(self, basnam=None, page=1):
+        self.basnam = basnam
+        self.page = page
+        self.itms = 0
+        self.fd = None
+        if basnam is not None:
+            self.set_outfile(basnam, page=page)
+        print("basnam %s" % basnam)
+    def set_outfile(self, basnam, combis=[], page=1):
+        self.page = basnam % page
+        self.fd = open(self.page + ".html", mode='w')
+        txt = '<html><head><title>%s</title></head><body><h1>%s</h1><p><img src="%s"></img>' \
+              % (combis, combis, os.path.basename(self.page + ".svg"))
+        print(txt)
+        self.fd.write(txt)
+        self.dryrun = True
+        self.itms = 0
+    def outitem(self, nr, txt):
+        if self.dryrun:
+            return
+        if self.itms == 0:
+            buf = '<ol>'
+        else:
+            buf = ''
+        buf += "<li>%s" % txt
+        self.fd.write(buf)
+        self.itms += 1
+        print('outitem: %s' % txt)
+    def finish(self):
+        if self.fd is None:
+            return
+        if self.itms > 0:
+            txt = '</ol>'
+        else:
+            txt = ''
+        txt += '</body>'
+        print(txt)
+        self.fd.write(txt)
+        self.fd.close()
 
 class Config:
     """
