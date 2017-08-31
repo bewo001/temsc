@@ -227,7 +227,7 @@ class Config:
                  box_sz=8,
                  linesp=None,
                  landscape=False,
-                 inkscape="inkscape"):
+                 inkscape="/usr/bin/inkscape"):
         """
         outdir: path to output directory
         outfile: name of outputfile, must contain a %d which will be replaced with a page number
@@ -579,9 +579,14 @@ class StatList:
                                  row_y)
 
     def export_emf(self):
-        subprocess.call([self.cfg.inkscape, "-M",
-                         (self.cfg.basnam + ".emf") % self.pages,
-                         self.fnam])
+        # windows requires to chdir into the executable's directory now
+        cwd = os.getcwd()
+        os.chdir(os.path.dirname(self.cfg.inkscape))
+        iks = os.path.basename(self.cfg.inkscape)
+        subprocess.call([iks, "-M",
+                         os.path.join(cwd, (self.cfg.basnam + ".emf") % self.pages),
+                         os.path.join(cwd, self.fnam)])
+        os.chdir(cwd)
 
     def page(self, row_y=None):
         if row_y is None:

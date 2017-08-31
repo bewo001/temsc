@@ -4,7 +4,7 @@ import msc
 def f():
     aprec = msc.Var([("A precond.", False), ("A precond.", True)])
     bprec = msc.Var([("B precond.", False), ("B precond.", True)])
-    with msc.Config(outdir="./tpcc", txtout=msc.TxtHtml(), format="svg") as cfg:
+    with msc.Config(outdir="./tpcc", txtout=msc.TxtHtml(), format="emf") as cfg:
         v = 0
         for i in msc.Combis([aprec, bprec]):
             sts = [("A", "User Agent A"),
